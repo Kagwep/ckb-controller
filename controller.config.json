@@ -1,0 +1,35 @@
+{
+  "//": "Project config — the single place for settings that were previously env vars and hardcoded literals. Deployed on-chain artifacts live in .controller/manifest.json (keyed by network). Env vars still override individual values everywhere.",
+  "network": "testnet",
+  "//keyFile": "Deploy/operator private key (raw hex, one line). Relative to this config's dir. Override per-machine with the KEYFILE env var instead of hardcoding an absolute path.",
+  "keyFile": "./testnet-key.txt",
+  "gameId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "session": {
+    "//": "FIXED DEMO KEYS (testnet only, publicly known) — a real deployment generates per-user keys. These reconstruct the deployed demo account's lock args byte-for-byte.",
+    "ownerPrivkey": "0x1111111111111111111111111111111111111111111111111111111111111111",
+    "sessionPrivkey": "0x2222222222222222222222222222222222222222222222222222222222222222",
+    "spendCapCkb": 1000,
+    "expiresAt": "never",
+    "policiesRoot": "wildcard",
+    "guardian": null
+  },
+  "operator": {
+    "listen": "127.0.0.1:9944",
+    "chain": "http",
+    "feeShannons": 100000
+  },
+  "fiber": {
+    "rpc": "http://127.0.0.1:8227"
+  },
+  "networks": {
+    "testnet": {
+      "rpc": "https://testnet.ckb.dev/rpc",
+      "explorerTx": "https://testnet.explorer.nervos.org/transaction/"
+    },
+    "devnet": {
+      "rpc": "http://127.0.0.1:8114",
+      "explorerTx": "",
+      "ckbDir": "D:/projects/ckb-bin/ckb_v0.207.0_x86_64-pc-windows-msvc"
+    }
+  }
+}

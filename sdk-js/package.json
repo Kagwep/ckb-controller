@@ -1,0 +1,34 @@
+{
+  "name": "@ckb-controller/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runtime SDK for the CKB controller: account, session, game intents, payment channel (mock + live in-browser Fiber).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ckb-ccc/core": "^1.15.0",
+    "@noble/curves": "^1.6.0",
+    "@noble/hashes": "^1.5.0"
+  },
+  "peerDependencies": {
+    "@nervosnetwork/fiber-js": ">=0.9.0-rc7"
+  },
+  "peerDependenciesMeta": {
+    "@nervosnetwork/fiber-js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nervosnetwork/fiber-js": "^0.9.0-rc7",
+    "typescript": "^5.6.3"
+  }
+}

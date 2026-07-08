@@ -1,0 +1,15 @@
+{
+  "name": "@ckb-controller/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Developer CLI for the CKB controller: init / status / deploy / account / dev / tunnel.",
+  "bin": {
+    "ckb-controller": "./bin.mjs"
+  },
+  "dependencies": {
+    "@ckb-ccc/core": "^1.15.0",
+    "@noble/curves": "^1.6.0",
+    "@noble/hashes": "^1.5.0"
+  }
+}

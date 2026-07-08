@@ -1,0 +1,42 @@
+[package]
+name = "paymaster-service"
+version = "0.1.0"
+edition = "2021"
+
+# Deployment shell around `controller-paymaster`: the networking/RPC/cell layer
+# the core crate intentionally leaves out. Turns the pure gate + assemble-then-sign
+# core into a running sponsored-relay HTTP service:
+#   * CkbRpc        — CKB JSON-RPC (tip header, live-cell collection, broadcast),
+#                     a trait so the orchestration is testable against a mock;
+#   * SponsorService— gate the biscuit token, collect a fee cell, balance the
+#                     client's partial tx (assemble-then-sign), broadcast;
+#   * a tiny_http server exposing /health, /sponsor, /broadcast.
+#
+# Stays in the ckb-types 0.202 world (no ckb-sdk), like the rest of the workspace.
+
+[lib]
+name = "paymaster_service"
+path = "src/lib.rs"
+
+[[bin]]
+name = "paymaster-service"
+path = "src/main.rs"
+
+[[bin]]
+name = "game-operator"
+path = "src/bin/game-operator.rs"
+
+[dependencies]
+controller-paymaster = { path = "../paymaster" }
+controller-sdk = { path = "../sdk" }
+ckb-types = "0.202"
+ckb-jsonrpc-types = "0.202"
+ckb-hash = "0.202"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", features = ["json"] }
+tiny_http = "0.12"
+anyhow = "1"
+hex = "0.4"
+# operator lock signing (sighash-all finalize); same version line as the CLI driver
+secp256k1 = { version = "0.24", features = ["recovery"] }

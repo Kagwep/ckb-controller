@@ -1,0 +1,6 @@
+2026/07/08-08:23:59.859 3b4c Reusing MANIFEST D:\projects\ckb-controller\demo\.edge-profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/07/08-08:23:59.862 3b4c Recovering log #4
+2026/07/08-08:23:59.863 3b4c Reusing old log D:\projects\ckb-controller\demo\.edge-profile\Default\EdgeCoupons/coupons_data.db/000004.log 
+2026/07/08-08:24:00.399 3054 Level-0 table #8: started
+2026/07/08-08:24:00.521 3054 Level-0 table #8: 683004 bytes OK
+2026/07/08-08:24:00.575 3054 Delete type=0 #4

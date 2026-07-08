@@ -1,0 +1,5 @@
+2026/07/08-08:24:09.811 62b4 Creating DB D:\projects\ckb-controller\demo\.edge-profile\Default\IndexedDB\http_localhost_5173.indexeddb.leveldb since it was missing.
+2026/07/08-08:24:09.948 62b4 Reusing MANIFEST D:\projects\ckb-controller\demo\.edge-profile\Default\IndexedDB\http_localhost_5173.indexeddb.leveldb/MANIFEST-000001
+2026/07/08-08:25:34.528 62b4 Level-0 table #5: started
+2026/07/08-08:25:34.656 62b4 Level-0 table #5: 1316180 bytes OK
+2026/07/08-08:25:34.775 62b4 Delete type=0 #3

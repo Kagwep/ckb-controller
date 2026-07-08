@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CKB Controller — Multiplayer Scoreboard</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5;
+      }
+      h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+      .sub { opacity: 0.7; margin-top: 0; font-size: 0.9rem; }
+      .card { border: 1px solid rgba(128,128,128,0.3); border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+      .meta { font-size: 0.82rem; opacity: 0.8; }
+      .meta code { font-family: ui-monospace, monospace; }
+      button {
+        font-size: 1.1rem; padding: 0.7rem 1.4rem; border-radius: 8px; cursor: pointer;
+        border: 1px solid rgba(128,128,128,0.4); background: #3b82f6; color: white; font-weight: 600;
+      }
+      button:disabled { opacity: 0.5; cursor: default; }
+      table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+      th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(128,128,128,0.2); }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      tr.me { background: rgba(59,130,246,0.12); font-weight: 600; }
+      #seq { float: right; font-size: 0.82rem; opacity: 0.7; }
+      ul#log { list-style: none; padding: 0; font-size: 0.82rem; max-height: 9rem; overflow-y: auto; }
+      ul#log li { padding: 0.15rem 0; border-bottom: 1px dashed rgba(128,128,128,0.15); font-family: ui-monospace, monospace; }
+      code { font-family: ui-monospace, monospace; }
+    </style>
+  </head>
+  <body>
+    <h1>Multiplayer Scoreboard</h1>
+    <p class="sub">
+      One shared game cell, many controllers. Each tab is a player; a move is a
+      session-signed intent the operator batches on-chain — no per-move popup, no
+      per-move wallet tx.
+    </p>
+
+    <div class="card">
+      <button id="score">Score +5 points</button>
+      <p class="meta" style="margin-bottom:0">
+        you: <code id="you">…</code> · operator: <code id="operator">…</code> ·
+        game: <code id="game">…</code>
+      </p>
+    </div>
+
+    <div class="card">
+      <span id="seq"></span>
+      <strong>Leaderboard</strong>
+      <table>
+        <thead><tr><th>player</th><th class="num">score</th><th class="num">nonce</th></tr></thead>
+        <tbody id="board"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <strong>Activity</strong>
+      <ul id="log"></ul>
+    </div>
+
+    <script type="module" src="/src/game.ts"></script>
+  </body>
+</html>

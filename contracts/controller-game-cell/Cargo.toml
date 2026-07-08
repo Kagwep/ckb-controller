@@ -1,0 +1,22 @@
+[package]
+name = "controller-game-cell"
+version = "0.1.0"
+edition = "2024"
+
+# Aggregator + game-cell TYPE script: the CKB analog of Cartridge's shared game
+# contract. A single game-state cell is advanced N -> N+1 by an operator that
+# batches session-signed player intents; this type script verifies each intent's
+# signature (ckb-auth) and that the resulting state is exactly f(state, intents).
+# Safety (no forged/replayed moves, no operator tampering) is enforced here; the
+# cell's LOCK decides who may sequence (liveness).
+
+[dependencies]
+ckb-std = "0.18"
+ckb-hash = { version = "0.202.0", default-features = false, features = ["ckb-contract"] }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+# THE GAME RULES — shared with the off-chain stack (sdk -> wasm -> browser);
+# edit game-rules/src/lib.rs to change the game, never this contract's framing.
+controller-game-rules = { path = "../../game-rules" }
+
+[build-dependencies]
+ckb-gen-types = "0.202.0"

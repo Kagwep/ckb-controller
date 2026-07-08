@@ -1,0 +1,31 @@
+[package]
+name = "controller-wasm"
+version = "0.1.0"
+edition = "2021"
+
+# Browser/JS client for the controller session lock: a wasm-bindgen surface over
+# `controller-sdk`. Exposes the controller-specific encoding that JS CKB libraries
+# don't provide — account address, session args/params, the carried-model auth
+# message, the policy Merkle tree, mode-tagged witnesses, the cell_deps-cleared
+# tx signing message — plus the `ChannelSession` open->pay->close loop (in-memory
+# MockRail) so a browser can run the whole flow with no node.
+#
+# What this is NOT: a Fiber node. The off-chain payment streaming is delegated to
+# Fiber's own JS light client (@nervosnetwork/fiber-js) on the JS side, which
+# implements the L2 rail; this crate is the L1 authorization, in the browser.
+# (cf. ../fiber-charge-sim — "use Fiber, don't duplicate".)
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+controller-sdk = { path = "../sdk" }
+ckb-types = "0.202"
+# The library builds on the workspace's rustc 1.85.1. Generating the JS glue
+# needs a matching `wasm-bindgen-cli` of the same version — its own build deps
+# require a newer rustc, so build the CLI with a newer toolchain (e.g.
+# `cargo +stable install wasm-bindgen-cli --version <this>`); the project itself
+# stays on 1.85.1. See scripts/build-wasm.sh.
+wasm-bindgen = "0.2.126"
+bech32 = "0.9"
+hex = "0.4"

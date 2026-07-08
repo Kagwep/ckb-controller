@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CKB Controller — Buy Troops</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>⚔️ CKB Controller — Buy Troops</h1>
+      <p class="tag">
+        One approval blesses a budget-capped session + a Fiber channel. Then it's
+        instant, off-chain, gasless, no popups — and a compromised game can lose at
+        most the channel budget, <strong>never your wallet</strong>.
+      </p>
+    </header>
+
+    <main>
+      <section class="card" id="connect-card">
+        <h2><span class="step">1</span> Connect</h2>
+        <label>
+          Channel budget (CKB)
+          <input id="budget" type="number" value="500" min="1" />
+        </label>
+        <button id="connect">Approve session &amp; open channel</button>
+        <dl id="connect-out" class="out hidden">
+          <dt>Controller account</dt><dd id="addr" class="mono"></dd>
+          <dt>Session key</dt><dd id="sess" class="mono"></dd>
+          <dt>Funding tx (L1)</dt><dd id="fundtx" class="mono"></dd>
+          <dt>Signed by</dt><dd id="signedby"></dd>
+        </dl>
+      </section>
+
+      <section class="card disabled" id="play-card">
+        <h2><span class="step">2</span> Play</h2>
+        <div class="troops">🪖 <span id="troops">0</span> troops</div>
+        <div class="bar"><div id="bar-fill"></div></div>
+        <div class="budget-line">
+          spent <span id="spent">0</span> / <span id="budget-total">0</span> CKB
+          · remaining <span id="remaining">0</span> CKB
+        </div>
+        <div class="buttons">
+          <button id="buy1" disabled>Buy 1 troop (5 CKB)</button>
+          <button id="buy10" disabled>Buy 10 ⚡</button>
+        </div>
+        <div class="meter">
+          <span class="pill">0 popups</span>
+          <span class="pill">0 L1 txs</span>
+          <span class="pill">0 gas</span>
+          <span class="pill" id="paycount">0 off-chain pays</span>
+        </div>
+        <ul id="log" class="log"></ul>
+      </section>
+
+      <section class="card disabled" id="settle-card">
+        <h2><span class="step">3</span> Settle</h2>
+        <p>Close the channel — net balances settle on L1 in one tx.</p>
+        <button id="settle" disabled>Cash out &amp; settle</button>
+        <dl id="settle-out" class="out hidden">
+          <dt>Returned to account</dt><dd id="local" class="mono"></dd>
+          <dt>Paid to game</dt><dd id="remote" class="mono"></dd>
+          <dt>Settle tx (L1)</dt><dd id="settletx" class="mono"></dd>
+        </dl>
+      </section>
+    </main>
+
+    <footer>
+      <span id="mode" class="pill mode">mode: mock (in-browser, no node)</span>
+      <span class="note">
+        Live mode = in-browser Fiber WASM node + external funding signed by the
+        session key (see <code>src/live.ts</code>); needs testnet + a deployed lock.
+      </span>
+    </footer>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

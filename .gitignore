@@ -1,0 +1,37 @@
+# ---- Rust ----
+/target
+**/target/
+*.rs.bk
+
+# ---- Node / JS ----
+node_modules/
+**/node_modules/
+**/dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# ---- WASM (wasm-pack output) ----
+build/
+**/pkg/
+
+# ---- VitePress (docs site build output & cache) ----
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# ---- Local dev chain, keys & secrets ----
+# .controller/ holds a local CKB dev chain, logs, and PRIVATE KEYS
+.controller/
+*.key
+*.pem
+**/secret_key
+devkey.txt
+testnet-key.txt
+
+# ---- Logs ----
+*.log
+
+# ---- Editor / OS ----
+*.swp
+.DS_Store
+Thumbs.db

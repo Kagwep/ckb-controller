@@ -1,0 +1,14 @@
+2026/07/08-01:54:25.532 64b8 Creating DB D:\projects\ckb-controller\demo\.edge-profile\Default\IndexedDB\http_localhost_5175.indexeddb.leveldb since it was missing.
+2026/07/08-01:54:25.569 64b8 Reusing MANIFEST D:\projects\ckb-controller\demo\.edge-profile\Default\IndexedDB\http_localhost_5175.indexeddb.leveldb/MANIFEST-000001
+2026/07/08-01:55:43.544 64b8 Level-0 table #5: started
+2026/07/08-01:55:43.690 64b8 Level-0 table #5: 1165393 bytes OK
+2026/07/08-01:55:43.720 64b8 Delete type=0 #3
+2026/07/08-01:56:11.684 64b8 Level-0 table #7: started
+2026/07/08-01:56:11.844 64b8 Level-0 table #7: 2067453 bytes OK
+2026/07/08-01:56:11.885 64b8 Delete type=0 #4
+2026/07/08-01:56:13.936 64b8 Compacting 1@1 + 1@2 files
+2026/07/08-01:56:14.086 64b8 Generated table #8@1: 2618 keys, 922992 bytes
+2026/07/08-01:56:14.086 64b8 Compacted 1@1 + 1@2 files => 922992 bytes
+2026/07/08-01:56:14.124 64b8 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/07/08-01:56:14.125 64b8 Delete type=2 #5
+2026/07/08-01:56:14.125 64b8 Delete type=2 #7

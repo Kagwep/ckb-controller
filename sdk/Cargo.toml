@@ -1,0 +1,15 @@
+[package]
+name = "controller-sdk"
+version = "0.1.0"
+edition = "2021"
+
+# Off-chain builder for the controller session lock: constructs args, session
+# params, the policy Merkle root + proofs, owner-authorization / tx messages, and
+# witnesses — exactly as the on-chain lock expects. Kept in lockstep with
+# contracts/controller-session-lock/src/main.rs; the sdk_sanity integration tests
+# run SDK-built transactions through the real lock in CKB-VM to catch drift.
+
+[dependencies]
+ckb-types = "0.202"
+ckb-hash = "0.202"
+controller-game-rules = { path = "../game-rules" }

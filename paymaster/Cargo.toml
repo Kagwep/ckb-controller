@@ -1,0 +1,24 @@
+[package]
+name = "controller-paymaster"
+version = "0.1.0"
+edition = "2021"
+
+# Testable core of the off-chain paymaster / sponsored-relay for the controller
+# session lock:
+#   1. a capability gate (signed, scoped, expiring sponsor token) — the
+#      "Biscuit-gating" of the relayer, here via Ed25519 behind a trait so it can
+#      be swapped for `biscuit-auth` (as Fiber uses) in production;
+#   2. assemble-then-sign tx balancing — append the paymaster's fee input + change
+#      to the client's partial tx BEFORE the client signs, so the session
+#      signature covers the final transaction (Fiber funding_tx discipline).
+#
+# The networking/RPC/cell-collection shell (HTTP, CKB RPC, live cell selection,
+# broadcast) is the deployment layer and is intentionally NOT in this crate.
+
+[dependencies]
+ckb-types = "0.202"
+ed25519-dalek = "2"
+# Production capability gate: same library (and version line) Fiber uses to gate
+# its RPC, so the relayer's sponsor tokens are real biscuits — datalog policies,
+# offline verification, attenuation, revocation.
+biscuit-auth = "6"

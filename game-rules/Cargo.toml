@@ -1,0 +1,18 @@
+[package]
+name = "controller-game-rules"
+version = "0.1.0"
+edition = "2021"
+
+# THE GAME RULES — the single source of truth for the game's state model and
+# transition function, compiled into BOTH the on-chain type script
+# (contracts/controller-game-cell, riscv64) and the off-chain clients
+# (controller-sdk -> controller-wasm -> browser). One crate, two targets: the
+# rules the chain enforces and the rules the client precomputes cannot drift.
+#
+# To build YOUR game: edit src/lib.rs (state + `apply_intent`), then rebuild
+# both artifacts (`ckb-controller build`). See README.md.
+
+[dependencies]
+# ckb-contract selects the pure-Rust blake2b (blake2b-ref): works identically
+# on riscv (the contract), wasm (the browser), and the host (tests).
+ckb-hash = { version = "0.202", default-features = false, features = ["ckb-contract"] }

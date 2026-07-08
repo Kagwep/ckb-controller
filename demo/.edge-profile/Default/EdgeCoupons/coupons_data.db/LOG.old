@@ -1,0 +1,5 @@
+2026/07/08-01:54:11.192 5ea8 Creating DB D:\projects\ckb-controller\demo\.edge-profile\Default\EdgeCoupons/coupons_data.db since it was missing.
+2026/07/08-01:54:11.470 5ea8 Reusing MANIFEST D:\projects\ckb-controller\demo\.edge-profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/07/08-01:54:12.910 1cc Level-0 table #5: started
+2026/07/08-01:54:12.985 1cc Level-0 table #5: 682901 bytes OK
+2026/07/08-01:54:13.002 1cc Delete type=0 #3

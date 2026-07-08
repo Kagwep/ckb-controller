@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# Find a clang 16+ binary able to cross-compile C to riscv64.
+# Adapted from ckb-script-templates / fiber-scripts, with Android NDK detection
+# added (the NDK ships a recent LLVM clang that works as a riscv cross-compiler).
+
+if [[ -n "${CLANG}" ]]; then
+  echo "${CLANG}"
+  exit 0
+fi
+
+CANDIDATES=("clang" "clang-18" "clang-17" "clang-16")
+
+# Homebrew (macOS / Linuxbrew)
+BREW_PREFIX=$(brew --prefix 2> /dev/null)
+if [[ -n "${BREW_PREFIX}" ]]; then
+  CANDIDATES+=(
+    "${BREW_PREFIX}/opt/llvm/bin/clang"
+    "${BREW_PREFIX}/opt/llvm@18/bin/clang"
+    "${BREW_PREFIX}/opt/llvm@16/bin/clang"
+  )
+fi
+
+# Android NDK (Windows/macOS/Linux). Pick the newest NDK's clang.
+for sdk in "${ANDROID_HOME}" "${ANDROID_SDK_ROOT}" "${LOCALAPPDATA}/Android/Sdk" "${HOME}/Library/Android/sdk" "${HOME}/Android/Sdk"; do
+  [[ -z "${sdk}" ]] && continue
+  for host in windows-x86_64 darwin-x86_64 linux-x86_64; do
+    for c in "${sdk}"/ndk/*/toolchains/llvm/prebuilt/${host}/bin/clang.exe \
+             "${sdk}"/ndk/*/toolchains/llvm/prebuilt/${host}/bin/clang; do
+      [[ -e "${c}" ]] && CANDIDATES+=("${c}")
+    done
+  done
+done
+
+for candidate in "${CANDIDATES[@]}"; do
+  OUTPUT=$("${candidate}" -dumpversion 2> /dev/null | cut -d'.' -f 1)
+  if [[ $((OUTPUT)) -ge 16 ]]; then
+    echo "${candidate}"
+    exit 0
+  fi
+done
+
+>&2 echo "Cannot find clang 16+ (needed to cross-compile ckb-std's C stub to riscv64)."
+>&2 echo "Install LLVM/clang, or set CLANG=/path/to/clang."
+exit 1
