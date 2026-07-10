@@ -16,6 +16,16 @@ export interface SettleResult {
   settleTxHash: string;
 }
 
+export interface PayInvoiceOpts {
+  /**
+   * Trampoline node pubkeys (Phase 2: `[hubPubkey]` — the channel peer). The
+   * payer needs no network graph; the hub pathfinds to the invoice payee.
+   */
+  trampolineHops?: string[];
+  /** Max routing fee in whole CKB. Be generous — fee estimation with gossip off is rough. */
+  maxFeeCkb?: bigint;
+}
+
 export interface ChannelRail {
   readonly mode: "mock" | "live";
   readonly address: string;
@@ -28,6 +38,19 @@ export interface ChannelRail {
    */
   waitReady(minCkb: bigint): Promise<void>;
   pay(costCkb: bigint): Promise<void>;
+  /** Receive side: issue an invoice for `amountCkb`; returns the pasteable invoice string. */
+  newInvoice(amountCkb: bigint, description?: string): Promise<string>;
+  /**
+   * Pay a peer's invoice — counts against the budget like pay(). Live resolves
+   * only once the payment reaches Success (rejects on Failed); route through the
+   * hub with opts.trampolineHops. Mock settles against the in-page registry.
+   */
+  payInvoice(invoice: string, opts?: PayInvoiceOpts): Promise<void>;
+  /**
+   * Receive side: resolve once an invoice THIS rail issued is Paid (poll);
+   * rejects on Cancelled/Expired or timeout.
+   */
+  waitInvoicePaid(invoice: string, timeoutMs?: number): Promise<void>;
   spentCkb(): bigint;
   remainingCkb(): bigint;
   close(): Promise<SettleResult>;

@@ -5,10 +5,34 @@
 //! shared board. It exposes the loop over HTTP (JSON, CORS-enabled so the browser
 //! demo can call it directly):
 //!
-//!   GET  /health   -> { status, game_id, seq, pending }
+//!   GET  /health   -> { status, game_id, seq, pending, invoices }
 //!   GET  /game     -> { seq, players: [ { hash, score, nonce } ] }
 //!   POST /intent   -> { intent: "0x<101 bytes>" }  => { tx_hash, seq }   (submit + flush)
 //!   POST /flush    -> {}                            => { tx_hash, seq }   (flush pending)
+//!
+//! ## Invoice relay (Phase 3 — non-custodial value rail)
+//! The operator NEVER touches keys, preimages, or funds — it relays invoice
+//! STRINGS between players so a payer never copy-pastes. Fibre TLCs move the value
+//! player↔hub↔player; the operator only shuttles bytes and keeps a match log.
+//!
+//!   POST /invoice        { invoice: "fibt…", amount_ckb, to?, from?, game_id? }
+//!                          => { id }              (payee publishes; bounded queue)
+//!   GET  /invoice?for=<h> => { invoice: {id,invoice,amount_ckb,from,to,…} | null }
+//!                          (payer polls; returns the next UNPAID invoice that is
+//!                           open or addressed to <h> and not published by <h>)
+//!   POST /invoice/paid   { id }  => { ok: true }  (payer/payee confirms settlement)
+//!
+//! `to`/`from` are player hashes (0x<20 bytes>); `to` omitted = open invoice
+//! (anyone may pay). The queue is in-memory and bounded (`INVOICE_CAP`); the
+//! durable record of who-paid-whom is the results log, not the queue.
+//!
+//! ## Results log (match history)
+//! Every score / invoice-published / invoice-paid event is appended as one JSON
+//! object per line to a JSONL file (`RESULTS_FILE`, default `game-results.jsonl`
+//! in the cwd). No DB. The state-of-record for SCORES is the on-chain game cell;
+//! this log is the operator's append-only match history.
+//!
+//!   GET  /results?n=<N>  => { results: [ …last N events… ] }   (default N = 50)
 //!
 //! ## Modes
 //! Default is an **in-memory demo** (`CHAIN=mock`): the tip starts at an empty
@@ -40,6 +64,7 @@
 //!   AUTH_DEP    0x<txhash>:<index> ckb-auth    (manifest auth | the testnet deploy)
 //!   SECP_DEP    0x<txhash>:<index> secp GROUP  (manifest secp256k1Sighash | testnet genesis)
 //!   FEE         shannons per transition        (config operator.feeShannons | 100000)
+//!   RESULTS_FILE match-history JSONL path        (default game-results.jsonl in cwd)
 
 use anyhow::{anyhow, Context, Result};
 use ckb_types::{
@@ -93,6 +118,216 @@ impl CkbRpc for MockChain {
     fn send_transaction(&self, tx: &TransactionView) -> Result<Byte32> {
         self.sent.set(self.sent.get() + 1);
         Ok(tx.hash())
+    }
+}
+
+// --- invoice relay + results log --------------------------------------------
+
+/// Bounded per-server invoice queue: the operator holds at most this many relayed
+/// invoice strings in memory. The durable record is the results log, not the queue.
+const INVOICE_CAP: usize = 256;
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// One relayed invoice. The operator only ever sees the STRING (`invoice`) plus
+/// routing metadata — never a key or preimage. `to`/`from` are player hashes;
+/// `to == None` is an open invoice anyone may pay.
+#[derive(Clone)]
+struct RelayInvoice {
+    id: u64,
+    game_id: Option<String>,
+    to: Option<String>,
+    from: Option<String>,
+    invoice: String,
+    amount_ckb: u64,
+    paid: bool,
+    ts: u64,
+}
+
+impl RelayInvoice {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "id": self.id,
+            "game_id": self.game_id,
+            "to": self.to,
+            "from": self.from,
+            "invoice": self.invoice,
+            "amount_ckb": self.amount_ckb,
+            "paid": self.paid,
+            "ts": self.ts,
+        })
+    }
+}
+
+/// In-memory relay: a bounded FIFO of invoice strings the operator shuttles
+/// between players. No custody — strings only.
+struct Relay {
+    invoices: Vec<RelayInvoice>,
+    next_id: u64,
+}
+
+impl Relay {
+    fn new() -> Self {
+        Self { invoices: Vec::new(), next_id: 1 }
+    }
+
+    fn publish(
+        &mut self,
+        game_id: Option<String>,
+        to: Option<String>,
+        from: Option<String>,
+        invoice: String,
+        amount_ckb: u64,
+    ) -> u64 {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.invoices.push(RelayInvoice {
+            id,
+            game_id,
+            to,
+            from,
+            invoice,
+            amount_ckb,
+            paid: false,
+            ts: now_secs(),
+        });
+        // Bounded queue: shed the oldest once over cap (its settlement, if any, is
+        // already in the results log).
+        while self.invoices.len() > INVOICE_CAP {
+            self.invoices.remove(0);
+        }
+        id
+    }
+
+    /// The next unpaid invoice a `payer` may pay: open or addressed to them, and
+    /// not one they published themselves. With `payer == None` (mock single-page
+    /// self-pay), the oldest unpaid invoice regardless of addressing.
+    fn next_for(&self, payer: Option<&str>) -> Option<&RelayInvoice> {
+        self.invoices.iter().find(|inv| {
+            if inv.paid {
+                return false;
+            }
+            if let Some(p) = payer {
+                if inv.from.as_deref() == Some(p) {
+                    return false; // don't hand a player their own invoice
+                }
+                if let Some(to) = &inv.to {
+                    if to != p {
+                        return false; // addressed to someone else
+                    }
+                }
+            }
+            true
+        })
+    }
+
+    fn mark_paid(&mut self, id: u64) -> Option<RelayInvoice> {
+        let inv = self.invoices.iter_mut().find(|i| i.id == id)?;
+        inv.paid = true;
+        Some(inv.clone())
+    }
+}
+
+/// Append-only match-history log (one JSON object per line). Best-effort: a write
+/// failure is logged to stderr but never fails a request (the on-chain cell, not
+/// this file, is the state-of-record for scores).
+struct ResultsLog {
+    path: std::path::PathBuf,
+}
+
+impl ResultsLog {
+    fn append(&self, event: serde_json::Value) {
+        use std::io::Write;
+        match std::fs::OpenOptions::new().create(true).append(true).open(&self.path) {
+            Ok(mut f) => {
+                if let Err(e) = writeln!(f, "{event}") {
+                    eprintln!("results log write failed: {e}");
+                }
+            }
+            Err(e) => eprintln!("results log open failed ({}): {e}", self.path.display()),
+        }
+    }
+
+    fn last(&self, n: usize) -> Vec<serde_json::Value> {
+        let content = std::fs::read_to_string(&self.path).unwrap_or_default();
+        let mut lines: Vec<serde_json::Value> =
+            content.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+        let len = lines.len();
+        if len > n {
+            lines.split_off(len - n)
+        } else {
+            lines
+        }
+    }
+}
+
+/// Extract a query-string parameter (`?a=1&b=2`) from a request url. Values are
+/// hex hashes / integers here, so no percent-decoding is needed.
+fn query_param(url: &str, key: &str) -> Option<String> {
+    let q = url.split_once('?')?.1;
+    q.split('&').find_map(|pair| {
+        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+        (k == key).then(|| v.to_string())
+    })
+}
+
+/// POST /invoice — a payee publishes an invoice string for the relay to hold.
+fn handle_publish_invoice(
+    relay: &mut Relay,
+    results: &ResultsLog,
+    body: &str,
+) -> (u16, serde_json::Value) {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return (400, serde_json::json!({ "error": format!("bad request: {e}") })),
+    };
+    let invoice = match req.get("invoice").and_then(|v| v.as_str()) {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return (400, serde_json::json!({ "error": "missing 'invoice' string field" })),
+    };
+    let amount_ckb = req.get("amount_ckb").and_then(|v| v.as_u64()).unwrap_or(0);
+    let to = req.get("to").and_then(|v| v.as_str()).map(String::from);
+    let from = req.get("from").and_then(|v| v.as_str()).map(String::from);
+    let game_id = req.get("game_id").and_then(|v| v.as_str()).map(String::from);
+
+    let id = relay.publish(game_id.clone(), to.clone(), from.clone(), invoice, amount_ckb);
+    results.append(serde_json::json!({
+        "ts": now_secs(), "kind": "invoice_published",
+        "id": id, "from": from, "to": to, "amount_ckb": amount_ckb, "game_id": game_id,
+    }));
+    (200, serde_json::json!({ "id": id }))
+}
+
+/// POST /invoice/paid — settlement confirmation; records it against the match log.
+fn handle_mark_paid(
+    relay: &mut Relay,
+    results: &ResultsLog,
+    seq: u64,
+    body: &str,
+) -> (u16, serde_json::Value) {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return (400, serde_json::json!({ "error": format!("bad request: {e}") })),
+    };
+    let id = match req.get("id").and_then(|v| v.as_u64()) {
+        Some(id) => id,
+        None => return (400, serde_json::json!({ "error": "missing numeric 'id' field" })),
+    };
+    match relay.mark_paid(id) {
+        Some(inv) => {
+            results.append(serde_json::json!({
+                "ts": now_secs(), "kind": "invoice_paid",
+                "id": inv.id, "from": inv.from, "to": inv.to,
+                "amount_ckb": inv.amount_ckb, "seq": seq,
+            }));
+            (200, serde_json::json!({ "ok": true }))
+        }
+        None => (404, serde_json::json!({ "error": "unknown invoice id" })),
     }
 }
 
@@ -156,6 +391,7 @@ fn handle_intent(
     op: &mut GameOperator,
     rpc: &dyn CkbRpc,
     finalize: &Finalize,
+    results: &ResultsLog,
     body: &str,
 ) -> (u16, serde_json::Value) {
     let req: serde_json::Value = match serde_json::from_str(body) {
@@ -175,6 +411,8 @@ fn handle_intent(
         Err(e) => return (400, serde_json::json!({ "error": format!("bad intent: {e:?}") })),
     };
 
+    // Keep the intent's fields for the match log (submit consumes the value).
+    let (player, points) = (format!("0x{}", hex::encode(intent.hash)), intent.points);
     // Admission-validate the intent (stale nonce / over-cap rejected here, before
     // it can jam the queue). Signatures are enforced on-chain, not here.
     if let Err(e) = op.submit(intent) {
@@ -183,13 +421,15 @@ fn handle_intent(
     // Auto-flush this move into its own transition (the demo shows one step per
     // move; batching several submits before a single /flush is also supported).
     match flush_or_shed(op, rpc, finalize) {
-        Ok(hash) => (
-            200,
-            serde_json::json!({
+        Ok(hash) => {
+            let seq = op.tip().state.seq;
+            results.append(serde_json::json!({
+                "ts": now_secs(), "kind": "score",
+                "player": player, "points": points, "seq": seq,
                 "tx_hash": format!("{:#x}", hash),
-                "seq": op.tip().state.seq,
-            }),
-        ),
+            }));
+            (200, serde_json::json!({ "tx_hash": format!("{:#x}", hash), "seq": seq }))
+        }
         Err(e) => (op_error_status(&e), serde_json::json!({ "error": format!("{e:?}") })),
     }
 }
@@ -378,10 +618,18 @@ fn main() -> Result<()> {
         other => return Err(anyhow!("CHAIN={other} not supported (mock | http)")),
     };
 
+    // Invoice relay queue (in-memory) + match-history log (JSONL). Neither touches
+    // funds — the relay shuttles invoice STRINGS, the log records what settled.
+    let mut relay = Relay::new();
+    let results = ResultsLog {
+        path: std::path::PathBuf::from(env_or("RESULTS_FILE", "game-results.jsonl")),
+    };
+
     let server = Server::http(&listen).map_err(|e| anyhow!("bind {listen}: {e}"))?;
     println!("game-operator listening on http://{listen}");
     println!("  game_id: 0x{}", hex::encode(game_id));
     println!("  chain:   {chain}");
+    println!("  results: {}", results.path.display());
 
     for mut request in server.incoming_requests() {
         let method = request.method().clone();
@@ -408,11 +656,31 @@ fn main() -> Result<()> {
                     "game_id": format!("0x{}", hex::encode(game_id)),
                     "seq": operator.tip().state.seq,
                     "pending": operator.pending(),
+                    "invoices": relay.invoices.len(),
                 }),
             ),
             (Method::Get, "/game") => (200, state_json(&operator.tip().state)),
-            (Method::Post, "/intent") => handle_intent(&mut operator, rpc.as_ref(), &finalize, &body),
+            (Method::Post, "/intent") => {
+                handle_intent(&mut operator, rpc.as_ref(), &finalize, &results, &body)
+            }
             (Method::Post, "/flush") => handle_flush(&mut operator, rpc.as_ref(), &finalize),
+            // --- invoice relay (Phase 3) — strings only, never funds ---
+            (Method::Post, "/invoice") => handle_publish_invoice(&mut relay, &results, &body),
+            (Method::Get, "/invoice") => {
+                let payer = query_param(&url, "for");
+                match relay.next_for(payer.as_deref()) {
+                    Some(inv) => (200, serde_json::json!({ "invoice": inv.to_json() })),
+                    None => (200, serde_json::json!({ "invoice": serde_json::Value::Null })),
+                }
+            }
+            (Method::Post, "/invoice/paid") => {
+                let seq = operator.tip().state.seq;
+                handle_mark_paid(&mut relay, &results, seq, &body)
+            }
+            (Method::Get, "/results") => {
+                let n = query_param(&url, "n").and_then(|s| s.parse().ok()).unwrap_or(50);
+                (200, serde_json::json!({ "results": results.last(n) }))
+            }
             _ => (404, serde_json::json!({ "error": "not found" })),
         };
 

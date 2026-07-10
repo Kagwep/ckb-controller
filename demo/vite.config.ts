@@ -27,17 +27,21 @@ export default defineConfig({
   // The file-linked @ckb-controller/sdk has its own node_modules — force one copy
   // of the shared deps (the polyfill shims only resolve from the demo's tree).
   resolve: { dedupe: ["@ckb-ccc/core", "@noble/curves", "@noble/hashes"] },
-  // Two pages: index.html (buy-troops channel demo) + game.html (multiplayer board).
+  // Pages: index.html (buy-troops channel demo), game.html (multiplayer board),
+  // fiber-game.html (Fiber-central shooter — every shot is a micropayment).
   build: {
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
         game: resolve(__dirname, "game.html"),
+        fiberGame: resolve(__dirname, "fiber-game.html"),
       },
     },
   },
   server: {
     headers: crossOriginIsolation,
+    // Allow serving through a Cloudflare quick tunnel (cross-device live testing).
+    allowedHosts: [".trycloudflare.com"],
     // controller.config.json + .controller/manifest.json live at the repo root
     // (one dir above the vite root) and are statically imported by src/config.ts.
     fs: { allow: [resolve(__dirname, "..")] },

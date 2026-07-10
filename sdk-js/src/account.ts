@@ -5,6 +5,17 @@ import type { Artifact, ControllerConfig, ControllerWasm, JsonScript, NetworkMan
 import { keyFromHex, type KeyPair } from "./keys.js";
 import { CKB } from "./types.js";
 
+/**
+ * Per-user keypair override. When passed to deriveAccount/Controller.load these
+ * replace config.session.{owner,session}Privkey; the rest of the session policy
+ * (expiresAt, policiesRoot, spendCapCkb, guardian) is unchanged — so each user
+ * gets a distinct account/lock/address under the same policy.
+ */
+export interface UserKeys {
+  owner: KeyPair;
+  session: KeyPair;
+}
+
 export interface Account {
   address: string;
   /** The account lock in JSON-RPC form (fiber-js `funding_lock_script` shape). */
@@ -27,14 +38,18 @@ function art(net: NetworkManifest, name: string): Artifact {
   return a;
 }
 
-/** Derive the account from config session policy + the network's lock deploy. */
-export function deriveAccount(config: ControllerConfig, net: NetworkManifest, wasm: ControllerWasm): Account {
+/**
+ * Derive the account from config session policy + the network's lock deploy.
+ * `keys` overrides only the two config privkeys (per-user identity); absent, the
+ * output is byte-identical to the fixed-key path Node drivers/tests rely on.
+ */
+export function deriveAccount(config: ControllerConfig, net: NetworkManifest, wasm: ControllerWasm, keys?: UserKeys): Account {
   const lockArt = art(net, "lock");
   const authArt = art(net, "auth");
   const s = config.session;
 
-  const owner = keyFromHex(s.ownerPrivkey);
-  const session = keyFromHex(s.sessionPrivkey);
+  const owner = keys?.owner ?? keyFromHex(s.ownerPrivkey);
+  const session = keys?.session ?? keyFromHex(s.sessionPrivkey);
   const expires = s.expiresAt === "never" ? wasm.no_expiry() : BigInt(s.expiresAt);
   const root = s.policiesRoot === "wildcard" ? wasm.wildcard_root() : s.policiesRoot;
   const spendCapShannons = BigInt(s.spendCapCkb) * CKB;

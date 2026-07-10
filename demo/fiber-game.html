@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CKB Controller — Fiber Game</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🎮 CKB Controller — Fiber Game</h1>
+      <p class="tag">
+        One approval opens a budget-capped session + Fiber channel. Then
+        <strong>every shot is an off-chain micropayment</strong> — instant,
+        gasless, no popups. The final score settles on-chain in one tx, and a
+        compromised game can lose at most the channel budget,
+        <strong>never your wallet</strong>.
+      </p>
+    </header>
+
+    <main>
+      <section class="card" id="connect-card">
+        <h2><span class="step">1</span> Connect</h2>
+        <label>
+          Channel budget (CKB)
+          <input id="budget" type="number" value="500" min="1" />
+        </label>
+        <label class="check">
+          <input id="live-toggle" type="checkbox" />
+          Play live on testnet <span class="note">(unchecked = mock, in-browser, no funds)</span>
+        </label>
+        <fieldset id="peer-fields" class="hidden">
+          <legend>Opponent — Fiber peer</legend>
+          <label>
+            Peer pubkey
+            <input id="peer" type="text" placeholder="0x02…" spellcheck="false" />
+          </label>
+          <label>
+            Peer WSS address
+            <input id="wss" type="text" placeholder="/dns4/…/tcp/443/wss/p2p/Qm…" spellcheck="false" />
+          </label>
+          <p class="note">
+            Start an opponent node with <code>node cli/bin.mjs tunnel</code> and
+            paste its printed pubkey + wss here.
+          </p>
+        </fieldset>
+        <button id="connect">Approve session &amp; open channel</button>
+        <dl id="connect-out" class="out hidden">
+          <dt>Controller account</dt><dd id="addr" class="mono"></dd>
+          <dt>Session key</dt><dd id="sess" class="mono"></dd>
+          <dt>Funding tx (L1)</dt><dd id="fundtx" class="mono"></dd>
+        </dl>
+      </section>
+
+      <section class="card disabled" id="stage-wrap">
+        <h2><span class="step">2</span> Play</h2>
+        <p class="tag">Aim with the mouse · fire with click or <kbd>Space</kbd> · each shot pays 1 CKB off-chain.</p>
+        <canvas
+          id="stage"
+          width="480"
+          height="520"
+          style="width:100%;max-width:480px;height:auto;display:block;margin:0 auto;border-radius:8px;cursor:crosshair"
+        ></canvas>
+        <div class="budget-line">
+          score <span id="score">0</span>
+          · shots <span id="shots">0</span>
+          · spent <span id="spent">0</span> / <span id="budget-total">0</span> CKB
+          · remaining <span id="remaining">0</span> CKB
+        </div>
+        <div class="bar"><div id="bar-fill"></div></div>
+        <div class="meter">
+          <span class="pill">0 popups</span>
+          <span class="pill">0 L1 txs (until settle)</span>
+          <span class="pill">0 gas</span>
+        </div>
+        <div class="buttons">
+          <button id="endgame" disabled>End game</button>
+        </div>
+        <ul id="log" class="log"></ul>
+      </section>
+
+      <section class="card disabled" id="settle-card">
+        <h2><span class="step">3</span> Settle</h2>
+        <p>Final score <strong id="finalscore">0</strong> — close the channel; net balances settle on L1 in one tx.</p>
+        <button id="settle" disabled>Settle on-chain</button>
+        <dl id="settle-out" class="out hidden">
+          <dt>Returned to account</dt><dd id="local" class="mono"></dd>
+          <dt>Paid to game</dt><dd id="remote" class="mono"></dd>
+          <dt>Settle tx (L1)</dt><dd id="settletx" class="mono"></dd>
+        </dl>
+      </section>
+    </main>
+
+    <footer>
+      <span id="mode" class="pill mode">mode: mock (in-browser, no node)</span>
+      <span id="user-addr" class="note mono hidden"></span>
+      <span class="note">
+        Live mode = in-browser Fiber WASM node + external funding signed by the
+        session key. Tick <strong>Play live on testnet</strong> and enter an
+        opponent peer above (needs testnet + a deployed lock).
+      </span>
+    </footer>
+
+    <script type="module" src="./src/fiber-game-main.ts"></script>
+  </body>
+</html>

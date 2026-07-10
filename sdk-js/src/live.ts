@@ -16,7 +16,8 @@
 import type { Account } from "./account.js";
 import type { Session } from "./session.js";
 import { fundingTxHash } from "./session.js";
-import type { ChannelRail, OpenResult, SettleResult } from "./rail.js";
+import { hx } from "./keys.js";
+import type { ChannelRail, OpenResult, PayInvoiceOpts, SettleResult } from "./rail.js";
 import { CKB } from "./types.js";
 
 export interface PeerConfig {
@@ -140,6 +141,79 @@ export class LiveRail implements ChannelRail {
       keysend: true,
     });
     this.spent += costCkb;
+  }
+
+  async newInvoice(amountCkb: bigint, description?: string): Promise<string> {
+    // Fresh random preimage per invoice; the node stores it and auto-settles the
+    // incoming TLC. Currency Fibt = CKB testnet (LiveRail is testnet-only).
+    const preimage = new Uint8Array(32);
+    crypto.getRandomValues(preimage);
+    const res = await this.fiber.newInvoice({
+      amount: "0x" + (amountCkb * CKB).toString(16),
+      currency: "Fibt",
+      payment_preimage: hx(preimage),
+      description,
+    });
+    return res.invoice_address as string;
+  }
+
+  async payInvoice(invoice: string, opts: PayInvoiceOpts = {}): Promise<void> {
+    // The invoice amount is what leaves the channel — count it against the
+    // budget like pay() (plus the routing fee, rounded up to whole CKB).
+    const parsed = await this.fiber.parseInvoice({ invoice });
+    const amountShannons = BigInt(parsed?.invoice?.amount ?? "0x0");
+    const sent = await this.fiber.sendPayment({
+      invoice,
+      trampoline_hops: opts.trampolineHops,
+      max_fee_amount: opts.maxFeeCkb !== undefined ? "0x" + (opts.maxFeeCkb * CKB).toString(16) : undefined,
+    });
+    // sendPayment returns Created/Inflight — poll until the payment settles.
+    const done = await this.waitPaymentSuccess(sent.payment_hash as string);
+    const outShannons = amountShannons + BigInt(done?.fee ?? "0x0");
+    this.spent += (outShannons + CKB - 1n) / CKB;
+  }
+
+  private async waitPaymentSuccess(paymentHash: string, timeoutMs = 120000): Promise<any> {
+    const deadline = Date.now() + timeoutMs;
+    let last = "";
+    while (Date.now() < deadline) {
+      let p: any;
+      try {
+        p = await this.fiber.getPayment({ payment_hash: paymentHash });
+      } catch {
+        /* node may not index the payment yet */
+      }
+      if (p?.status === "Success") return p;
+      if (p?.status === "Failed") throw new Error(`payment failed: ${p.failed_error ?? "(no error detail)"}`);
+      last = p?.status ?? last;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    throw new Error(`payment ${paymentHash.slice(0, 12)}… not Success within ${timeoutMs / 1000}s (last: ${last || "unknown"})`);
+  }
+
+  async waitInvoicePaid(invoice: string, timeoutMs = 180000): Promise<void> {
+    // getInvoice only knows invoices THIS node issued — which is exactly the
+    // receive-side contract: poll our own invoice until the payer settles it.
+    const parsed = await this.fiber.parseInvoice({ invoice });
+    const paymentHash = parsed?.invoice?.data?.payment_hash as string;
+    if (!paymentHash) throw new Error("could not parse a payment_hash out of the invoice");
+    const deadline = Date.now() + timeoutMs;
+    let last = "";
+    while (Date.now() < deadline) {
+      let res: any;
+      try {
+        res = await this.fiber.getInvoice({ payment_hash: paymentHash });
+      } catch {
+        /* keep polling */
+      }
+      if (res?.status === "Paid") return;
+      if (res?.status === "Cancelled" || res?.status === "Expired") {
+        throw new Error(`invoice ${res.status.toLowerCase()} — will not be paid`);
+      }
+      last = res?.status ?? last;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    throw new Error(`invoice not paid within ${timeoutMs / 1000}s (last status: ${last || "unknown"})`);
   }
 
   spentCkb(): bigint {

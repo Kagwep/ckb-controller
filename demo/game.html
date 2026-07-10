@@ -3,13 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CKB Controller — Multiplayer Scoreboard</title>
+    <title>CKB Controller — Multiplayer Match</title>
     <style>
       :root { color-scheme: light dark; }
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
         max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5;
       }
+      label { display: block; font-size: 0.85rem; margin: 0.4rem 0; }
+      input { font: inherit; padding: 0.3rem 0.4rem; border-radius: 6px; border: 1px solid rgba(128,128,128,0.4); }
+      .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+      .status { font-size: 0.82rem; opacity: 0.85; }
       h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
       .sub { opacity: 0.7; margin-top: 0; font-size: 0.9rem; }
       .card { border: 1px solid rgba(128,128,128,0.3); border-radius: 10px; padding: 1rem; margin: 1rem 0; }
@@ -20,6 +24,8 @@
         border: 1px solid rgba(128,128,128,0.4); background: #3b82f6; color: white; font-weight: 600;
       }
       button:disabled { opacity: 0.5; cursor: default; }
+      button.small { font-size: 0.8rem; padding: 0.25rem 0.6rem; background: none; color: inherit; font-weight: 400; }
+      .hidden { display: none; }
       table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
       th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(128,128,128,0.2); }
       td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -31,11 +37,13 @@
     </style>
   </head>
   <body>
-    <h1>Multiplayer Scoreboard</h1>
+    <h1>Multiplayer Match</h1>
     <p class="sub">
-      One shared game cell, many controllers. Each tab is a player; a move is a
-      session-signed intent the operator batches on-chain — no per-move popup, no
-      per-move wallet tx.
+      Two rails in one loop. <strong>State:</strong> each tab is a player; a move is
+      a session-signed intent the operator batches into a shared game cell on-chain
+      — no per-move popup. <strong>Value:</strong> scoring publishes a "bounty"
+      invoice via the operator's non-custodial relay; another player pays it over a
+      Fiber channel (routed through the hub). The operator relays strings, never funds.
     </p>
 
     <div class="card">
@@ -43,6 +51,10 @@
       <p class="meta" style="margin-bottom:0">
         you: <code id="you">…</code> · operator: <code id="operator">…</code> ·
         game: <code id="game">…</code>
+      </p>
+      <p class="meta hidden" id="addr-row" style="margin-bottom:0">
+        this device: <code id="user-addr">…</code>
+        <button id="copy-addr" class="small">copy address</button>
       </p>
     </div>
 
@@ -53,6 +65,30 @@
         <thead><tr><th>player</th><th class="num">score</th><th class="num">nonce</th></tr></thead>
         <tbody id="board"></tbody>
       </table>
+    </div>
+
+    <div class="card">
+      <strong>Bounty channel <span class="note">(value rail — mock, or ?live=1&amp;peer=&amp;wss=)</span></strong>
+      <label>
+        Channel budget (CKB)
+        <input id="budget" type="number" value="300" min="1" />
+      </label>
+      <div class="row">
+        <button id="open-channel">Open channel</button>
+        <button id="pay-bounty" disabled>Pay next bounty</button>
+        <button id="settle" disabled>Settle</button>
+      </div>
+      <p class="status" style="margin-bottom:0">
+        account: <code id="chan-addr">—</code> · funding: <code id="chan-fundtx">—</code><br />
+        spent <code id="chan-spent">0</code> / remaining <code id="chan-remaining">0</code> CKB ·
+        bounty: <span id="bounty-status">—</span><br />
+        settle: <span id="chan-settle">—</span>
+      </p>
+    </div>
+
+    <div class="card">
+      <strong>Match log <span class="note">(GET /results)</span></strong>
+      <ul id="results"></ul>
     </div>
 
     <div class="card">

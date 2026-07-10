@@ -6,9 +6,18 @@ import { utf8ToBytes, bytesToHex } from "@noble/hashes/utils";
 import type { ControllerWasm, WasmChannelSession } from "./types.js";
 import { CKB } from "./types.js";
 import { genKey, signRecoverable, type KeyPair } from "./keys.js";
-import type { ChannelRail, OpenResult, SettleResult } from "./rail.js";
+import type { ChannelRail, OpenResult, PayInvoiceOpts, SettleResult } from "./rail.js";
 
 const HT_DATA2 = 0x04;
+
+// In-page mock invoice registry: mock is single-page, so payer and payee rails
+// share this module and one map IS the whole payment network (no hub needed).
+interface MockInvoice {
+  amountCkb: bigint;
+  paid: boolean;
+}
+const invoices = new Map<string, MockInvoice>();
+let invoiceSeq = 0;
 
 export class MockRail implements ChannelRail {
   readonly mode = "mock" as const;
@@ -62,6 +71,30 @@ export class MockRail implements ChannelRail {
 
   async pay(costCkb: bigint): Promise<void> {
     this.ch.pay(costCkb * CKB);
+  }
+
+  async newInvoice(amountCkb: bigint, _description?: string): Promise<string> {
+    const id = `mockfibt${amountCkb}n${++invoiceSeq}x${Math.random().toString(36).slice(2, 10)}`;
+    invoices.set(id, { amountCkb, paid: false });
+    return id;
+  }
+
+  async payInvoice(invoice: string, _opts: PayInvoiceOpts = {}): Promise<void> {
+    const inv = invoices.get(invoice);
+    if (!inv) throw new Error("unknown invoice — mock invoices only route within this page");
+    if (inv.paid) throw new Error("invoice already paid");
+    this.ch.pay(inv.amountCkb * CKB); // same budget guard/accounting as pay()
+    inv.paid = true;
+  }
+
+  async waitInvoicePaid(invoice: string, timeoutMs = 30000): Promise<void> {
+    const inv = invoices.get(invoice);
+    if (!inv) throw new Error("unknown invoice — mock invoices only route within this page");
+    const deadline = Date.now() + timeoutMs;
+    while (!inv.paid) {
+      if (Date.now() > deadline) throw new Error(`invoice not paid within ${timeoutMs / 1000}s (mock)`);
+      await new Promise((r) => setTimeout(r, 50));
+    }
   }
 
   spentCkb(): bigint {

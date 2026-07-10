@@ -15,7 +15,7 @@
 // INITIALISED controller-wasm module (see types.ts) — no file or wasm loading
 // here, so it runs identically in the browser (Vite) and Node.
 import type { ControllerConfig, ControllerWasm, NetworkManifest } from "./types.js";
-import { deriveAccount, type Account } from "./account.js";
+import { deriveAccount, type Account, type UserKeys } from "./account.js";
 import { Session } from "./session.js";
 import { GameClient } from "./game.js";
 import { MockRail } from "./mock.js";
@@ -24,12 +24,19 @@ import type { ChannelRail } from "./rail.js";
 
 export * from "./types.js";
 export * from "./keys.js";
-export { deriveAccount, type Account } from "./account.js";
+export { deriveAccount, type Account, type UserKeys } from "./account.js";
 export { Session, fundingTxHash, fiberTxToMoleculeHex } from "./session.js";
-export { GameClient, GamePlayer, type Board, type MoveResult } from "./game.js";
+export {
+  GameClient,
+  GamePlayer,
+  type Board,
+  type MoveResult,
+  type RelayInvoice,
+  type ResultEvent,
+} from "./game.js";
 export { MockRail } from "./mock.js";
 export { LiveRail, type PeerConfig } from "./live.js";
-export type { ChannelRail, OpenResult, SettleResult } from "./rail.js";
+export type { ChannelRail, OpenResult, PayInvoiceOpts, SettleResult } from "./rail.js";
 
 export interface LoadOptions {
   config: ControllerConfig;
@@ -37,6 +44,8 @@ export interface LoadOptions {
   wasm: ControllerWasm;
   /** Override config.network (e.g. "devnet"). */
   network?: string;
+  /** Per-user keypair override — replaces the config.session privkeys (see UserKeys). */
+  keys?: UserKeys;
 }
 
 export type ChannelOptions = { mode: "mock"; budgetCkb: bigint } | { mode: "live"; peer: PeerConfig };
@@ -52,10 +61,11 @@ export class Controller {
     net: NetworkManifest,
     network: string,
     private wasm: ControllerWasm,
+    keys?: UserKeys,
   ) {
     this.network = network;
     this.net = net;
-    this.account = deriveAccount(config, net, wasm);
+    this.account = deriveAccount(config, net, wasm, keys);
     this.session = new Session(this.account.session, wasm);
   }
 
@@ -63,7 +73,7 @@ export class Controller {
     const network = opts.network ?? opts.config.network;
     const net = opts.manifest[network];
     if (!net) throw new Error(`manifest has no network "${network}"`);
-    return new Controller(opts.config, net, network, opts.wasm);
+    return new Controller(opts.config, net, network, opts.wasm, opts.keys);
   }
 
   get rpc(): string {

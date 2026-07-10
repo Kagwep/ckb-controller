@@ -1,0 +1,5 @@
+{"kind":"score","player":"0x58ad697b0db5a7d93bb48d0685293e10388d6871","points":5,"seq":19,"ts":1783714924,"tx_hash":"0xbfc49373441563c6d01b3db501a2b4c033c4f177028a3ffa43e387eead282533"}
+{"amount_ckb":5,"from":"0x58ad697b0db5a7d93bb48d0685293e10388d6871","game_id":"0x0000000000000000000000000000000000000000000000000000000000000000","id":1,"kind":"invoice_published","to":null,"ts":1783714924}
+{"kind":"score","player":"0xba702f3f93c11329ec12638c8c090a40ffe24f7c","points":5,"seq":20,"ts":1783714928,"tx_hash":"0xc71ad382472280e61b450c32414eafd6124d4f40cd7b14e7119901a1aa963398"}
+{"amount_ckb":5,"from":"0xba702f3f93c11329ec12638c8c090a40ffe24f7c","game_id":"0x0000000000000000000000000000000000000000000000000000000000000000","id":2,"kind":"invoice_published","to":null,"ts":1783714928}
+{"amount_ckb":5,"from":"0xba702f3f93c11329ec12638c8c090a40ffe24f7c","id":2,"kind":"invoice_paid","seq":20,"to":null,"ts":1783714935}

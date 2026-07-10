@@ -46,6 +46,18 @@ input {
   background: #0e1116; border: 1px solid var(--line); color: var(--fg);
   border-radius: 8px; padding: 0.5rem 0.75rem; width: 180px; font-size: 1rem;
 }
+/* Checkbox toggles must not inherit the text-field box styling above. */
+input[type="checkbox"] {
+  display: inline-block; width: auto; margin: 0; padding: 0;
+  vertical-align: middle; accent-color: var(--accent);
+  transform: scale(1.2);
+}
+label.check { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+label.check .note { margin: 0; }
+/* Opponent peer fields: long inputs (a wss multiaddr) need room. */
+#peer-fields { border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.9rem; margin: 0 0 0.75rem; }
+#peer-fields legend { color: var(--muted); font-size: 0.85rem; padding: 0 0.35rem; }
+#peer-fields input { width: 100%; max-width: 460px; }
 button {
   background: var(--accent); color: #fff; border: 0;
   border-radius: 8px; padding: 0.6rem 1rem; font-size: 1rem; cursor: pointer;

@@ -31,6 +31,10 @@ testnet-key.txt
 # ---- Logs ----
 *.log
 
+# ---- Browser profiles (demo live-mode / e2e) ----
+**/.edge-profile/
+**/.chrome-profile/
+
 # ---- Editor / OS ----
 *.swp
 .DS_Store

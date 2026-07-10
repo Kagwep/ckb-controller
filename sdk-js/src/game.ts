@@ -15,6 +15,25 @@ export interface MoveResult {
   txHash: string;
 }
 
+/** A relayed invoice string the operator is holding (Phase 3, non-custodial). */
+export interface RelayInvoice {
+  id: number;
+  invoice: string;
+  amountCkb: number;
+  to?: string;
+  from?: string;
+  gameId?: string;
+  paid: boolean;
+  ts: number;
+}
+
+/** One appended match-history event from the operator's results log. */
+export interface ResultEvent {
+  ts: number;
+  kind: "score" | "invoice_published" | "invoice_paid";
+  [k: string]: unknown;
+}
+
 export class GameClient {
   constructor(
     readonly operatorUrl: string,
@@ -63,6 +82,85 @@ export class GameClient {
     const body = await res.json();
     if (!res.ok) throw new Error(String(body.error ?? res.status));
     return { seq: body.seq as number, txHash: body.tx_hash as string };
+  }
+
+  // --- invoice relay (Phase 3) -------------------------------------------------
+  // The operator relays invoice STRINGS between players so a payer never
+  // copy-pastes; value moves over Fiber TLCs, never through the operator.
+
+  /**
+   * Publish an invoice for the relay to hold. `to` addresses it to a specific
+   * payer hash (omit for an open invoice anyone may pay); `from` is the payee's
+   * own hash so the relay can keep a player from paying their own invoice.
+   */
+  async publishInvoice(
+    invoice: string,
+    amountCkb: bigint,
+    opts: { to?: string; from?: string; gameId?: string } = {},
+  ): Promise<{ id: number }> {
+    const res = await fetch(`${this.operatorUrl}/invoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invoice,
+        amount_ckb: Number(amountCkb),
+        to: opts.to,
+        from: opts.from,
+        game_id: opts.gameId ?? this.gameId,
+      }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(String(body.error ?? res.status));
+    return { id: body.id as number };
+  }
+
+  /**
+   * Fetch the next unpaid invoice this player may pay. Pass `payerHash` (live,
+   * multi-user) to skip your own invoices and honour addressing; omit it (mock
+   * single page) to allow paying an invoice you just published yourself.
+   */
+  async nextInvoice(payerHash?: string): Promise<RelayInvoice | null> {
+    const q = payerHash ? `?for=${encodeURIComponent(payerHash)}` : "";
+    const res = await fetch(`${this.operatorUrl}/invoice${q}`);
+    if (!res.ok) return null;
+    const body = await res.json();
+    const inv = body.invoice;
+    if (!inv) return null;
+    return {
+      id: inv.id,
+      invoice: inv.invoice,
+      amountCkb: inv.amount_ckb,
+      to: inv.to ?? undefined,
+      from: inv.from ?? undefined,
+      gameId: inv.game_id ?? undefined,
+      paid: inv.paid,
+      ts: inv.ts,
+    };
+  }
+
+  /** Confirm an invoice settled — records it in the operator's match log. */
+  async markPaid(id: number): Promise<void> {
+    const res = await fetch(`${this.operatorUrl}/invoice/paid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(String(body.error ?? res.status));
+    }
+  }
+
+  /** The last `n` match-history events (default 50), newest last. */
+  async results(n = 50): Promise<ResultEvent[]> {
+    try {
+      const res = await fetch(`${this.operatorUrl}/results?n=${n}`);
+      if (!res.ok) return [];
+      const body = await res.json();
+      return (body.results ?? []) as ResultEvent[];
+    } catch {
+      return [];
+    }
   }
 }
 

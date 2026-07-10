@@ -53,8 +53,34 @@
         <ul id="log" class="log"></ul>
       </section>
 
+      <section class="card disabled" id="p2p-card">
+        <h2><span class="step">3</span> P2P pay <span class="note">(routed via the hub)</span></h2>
+        <p class="tag">
+          Player-to-player: the other browser requests an invoice, you paste it here —
+          the payment routes through the hub (trampoline), off-chain, no popups.
+        </p>
+        <label>
+          Request (CKB)
+          <input id="req-amount" type="number" value="20" min="1" />
+        </label>
+        <button id="req-btn" disabled>Request — create invoice</button>
+        <dl id="invoice-out" class="out hidden">
+          <dt>Invoice (send to the payer)</dt><dd id="invoice-str" class="mono"></dd>
+          <dt>Status</dt><dd id="recv-status">—</dd>
+          <dt>Received (CKB)</dt><dd id="recv-ckb">0</dd>
+        </dl>
+        <label>
+          Paste invoice
+          <input id="pay-invoice" type="text" placeholder="fibt…" spellcheck="false" />
+        </label>
+        <button id="pay-btn" disabled>Pay via hub</button>
+        <dl class="out">
+          <dt>Payment</dt><dd id="pay-status">—</dd>
+        </dl>
+      </section>
+
       <section class="card disabled" id="settle-card">
-        <h2><span class="step">3</span> Settle</h2>
+        <h2><span class="step">4</span> Settle</h2>
         <p>Close the channel — net balances settle on L1 in one tx.</p>
         <button id="settle" disabled>Cash out &amp; settle</button>
         <dl id="settle-out" class="out hidden">
@@ -67,6 +93,7 @@
 
     <footer>
       <span id="mode" class="pill mode">mode: mock (in-browser, no node)</span>
+      <span id="user-addr" class="note mono hidden"></span>
       <span class="note">
         Live mode = in-browser Fiber WASM node + external funding signed by the
         session key (see <code>src/live.ts</code>); needs testnet + a deployed lock.
